@@ -7,7 +7,7 @@
  *
  */
 const path = require("path");
-const {request} = require("http");
+const {get} = require("http");
 const {spawn} = require("child_process");
 const {execute} = require("../../../../../scripts/script_utils");
 
@@ -17,10 +17,12 @@ const PACKAGE_ROOT = path.join(__dirname, "..", "..", "..");
 /**
  * Kill the Jupyterlab process created by the tests.
  */
-exports.kill_jlab = () => {
+const kill_jlab = () => {
     console.log("-- Cleaning up Jupyterlab process");
-    execute`pkill -f "jupyter-lab --no-browser --port=5002"`;
+    execute`pkill -f "jupyter-lab --no-browser --port=${process.env.__JUPYTERLAB_PORT__}"`;
 };
+
+exports.kill_jlab = kill_jlab;
 
 /**
  * Block until the Jupyterlab server is ready.
@@ -30,19 +32,18 @@ const wait_for_jlab = async function() {
     let loaded = false;
 
     while (!loaded) {
-        const req = request(`http://localhost:${process.env.__JUPYTERLAB_PORT__}`).end();
-
-        req.on("error", err => {
+        get(`http://localhost:${process.env.__JUPYTERLAB_PORT__}`, res => {
+            console.log(res.statusCode);
+            console.log(res.headers);
+            console.log(`Jupyterlab server has started on ${process.env.__JUPYTERLAB_PORT__}`);
+            loaded = true;
+        }).on("error", err => {
             if (num_errors > 5) {
+                kill_jlab();
                 throw new Error(`Could not launch Jupyterlab: ${err}`);
             }
 
             num_errors++;
-        });
-
-        req.on("response", () => {
-            console.log(`Jupyterlab server has started on ${process.env.__JUPYTERLAB_PORT__}`);
-            loaded = true;
         });
 
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -72,11 +73,13 @@ if (require.main === module) {
 
         // Wait for Jupyterlab to start up
         wait_for_jlab().then(() => {
+            execute`ps aux | grep jupyterlab`;
+            execute`jupyter server list`;
             process.exit(0);
         });
     } catch (e) {
         console.error(e);
-        execute`pkill -f "jupyter-lab --no-browser --port=5002"`;
+        kill_jlab();
         process.exit(1);
     }
 }

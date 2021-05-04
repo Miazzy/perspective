@@ -7,8 +7,15 @@
  *
  */
 const {kill_jlab} = require("./jlab_start");
+const {get} = require("http");
 
 module.exports = async function() {
+    get(`http://127.0.0.1:6538`, res => {
+        console.log(res.statusCode);
+        console.log(res.headers);
+        console.log(`Jupyterlab server has started...`);
+    });
+
     // At this point, Jupyterlab has already been started by the main test
     // runner, so all we need to do is set up the signal listeners to
     // clean up the Jupyter process if we Ctrl-C.

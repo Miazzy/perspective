@@ -14,6 +14,7 @@ const notebook_template = require("./notebook_template.json");
 const DIST_ROOT = path.join(__dirname, "..", "..", "dist", "umd");
 const TEST_CONFIG_ROOT = path.join(__dirname, "..", "config", "jupyter");
 const IS_LOCAL_PUPPETEER = process.env.IS_LOCAL_PUPPETEER;
+const IS_LINUX = process.platform !== "darwin" && process.platform != "win32";
 
 const remove_jupyter_artifacts = () => {
     rimraf(path.join(TEST_CONFIG_ROOT, "lab"), () => {});
@@ -90,7 +91,9 @@ test.jupyterlab = async (name, cells, body, args = {}) => {
         host: "host.docker.internal"
     });
 
-    if (IS_LOCAL_PUPPETEER) {
+    // On linux, use localhost instead of host.docker.internal since
+    // --network=host works.
+    if (IS_LOCAL_PUPPETEER || IS_LINUX) {
         delete args.host;
     }
 
@@ -109,6 +112,7 @@ module.exports = {
         await page.click(".jp-NotebookPanel-toolbar .jp-Button[title='Run the selected cells and advance']");
     },
     execute_all_cells: async page => {
+        await page.waitForFunction(async () => !!document.title);
         await page.waitForSelector(".p-Widget", {visible: true});
         await page.waitForSelector(".jp-NotebookPanel-toolbar", {visible: true});
 
